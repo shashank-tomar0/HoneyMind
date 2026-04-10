@@ -113,47 +113,53 @@ def honeypot_login():
         ml_phase = 0
 
     # ── Step 4: Create/Update Attack Session ─────────────────────────
-    attack_session = _get_or_create_session(ip, user_agent, session_data)
+    attack_session = None
+    if ml_action != "LEGIT":
+        attack_session = _get_or_create_session(ip, user_agent, session_data)
 
-    # NEVER downgrade threat level: ATTACKER > SUSPICIOUS > LEGIT
-    _LEVEL_RANK = {"ATTACKER": 3, "SUSPICIOUS": 2, "LEGIT": 1}
-    old_rank = _LEVEL_RANK.get(attack_session.ml_action, 0)
-    new_rank = _LEVEL_RANK.get(ml_action, 0)
-    if new_rank >= old_rank:
-        attack_session.ml_action = ml_action
-        attack_session.ml_confidence = ml_confidence
-    # Always update these
-    attack_session.ml_phase = ml_phase
-    attack_session.detection_flags = detection_flags
+        # NEVER downgrade threat level: ATTACKER > SUSPICIOUS > LEGIT
+        _LEVEL_RANK = {"ATTACKER": 3, "SUSPICIOUS": 2, "LEGIT": 1}
+        old_rank = _LEVEL_RANK.get(attack_session.ml_action, 0)
+        new_rank = _LEVEL_RANK.get(ml_action, 0)
+        if new_rank >= old_rank:
+            attack_session.ml_action = ml_action
+            attack_session.ml_confidence = ml_confidence
+        # Always update these
+        attack_session.ml_phase = ml_phase
+        
+        # Merge detection flags so we don't lose previous ones
+        existing_flags = set(attack_session.detection_flags or [])
+        existing_flags.update(detection_flags)
+        attack_session.detection_flags = list(existing_flags)
 
-    # Record credential attempt
-    cred = CredentialAttempt(
-        session_id=attack_session.id,
-        username=username,
-        password=password,
-        ip=ip,
-        time_to_submit_s=data.get("time_to_submit_form_s"),
-        keystroke_interval_ms=data.get("keystroke_interval_ms"),
-        mouse_moved=data.get("mouse_moved_before_click"),
-        has_javascript=data.get("has_javascript"),
-    )
-    db.session.add(cred)
+        # Record credential attempt
+        cred = CredentialAttempt(
+            session_id=attack_session.id,
+            username=username,
+            password=password,
+            ip=ip,
+            time_to_submit_s=data.get("time_to_submit_form_s"),
+            keystroke_interval_ms=data.get("keystroke_interval_ms"),
+            mouse_moved=data.get("mouse_moved_before_click"),
+            has_javascript=data.get("has_javascript"),
+        )
+        db.session.add(cred)
 
-    # Log event
-    event = SessionEvent(
-        session_id=attack_session.id,
-        event_type="LOGIN_ATTEMPT",
-        event_data={
-            "username": username,
-            "ml_action": ml_action,
-            "ml_confidence": round(ml_confidence, 4),
-            "detection_flags": detection_flags,
-        },
-        source_service="login",
-        severity="WARNING" if ml_action != "LEGIT" else "INFO",
-    )
-    db.session.add(event)
-    db.session.commit()
+        # Log event
+        event = SessionEvent(
+            session_id=attack_session.id,
+            event_type="LOGIN_ATTEMPT",
+            event_data={
+                "username": username,
+                "ml_action": ml_action,
+                "ml_confidence": round(ml_confidence, 4),
+                "detection_flags": detection_flags,
+            },
+            source_service="login",
+            severity="WARNING" if ml_action != "LEGIT" else "INFO",
+        )
+        db.session.add(event)
+        db.session.commit()
 
     # ── Emit real-time event to React Analyst Dashboard ──────────────
     _emit_attack_to_dashboard(attack_session, ml_action, ml_confidence, detection_flags, ip, username)
@@ -294,7 +300,7 @@ def _log_detection(ip: str, detection_type: str, details: dict) -> None:
 
 
 def _emit_attack_to_dashboard(
-    session: AttackSession,
+    session: AttackSession | None,
     ml_action: str,
     ml_confidence: float,
     detection_flags: list,
@@ -322,13 +328,18 @@ def _emit_attack_to_dashboard(
     geo = geolocate_ip(ip)
 
     # Save geolocation to the attack session record in the database
-    session.geo_country = geo.get("country")
-    session.geo_city = geo.get("city")
-    db.session.commit()
+    if session:
+        session.geo_country = geo.get("country")
+        session.geo_city = geo.get("city")
+        db.session.commit()
+        session_id = session.id
+    else:
+        import uuid
+        session_id = str(uuid.uuid4())
 
     # Emit attack_event — this feeds the Globe arcs + Live Feed
     event_payload = {
-        "session_id": session.id,
+        "session_id": session_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "attack_type": attack_type,
         "threat_level": threat_level,

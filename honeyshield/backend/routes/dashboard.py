@@ -367,6 +367,18 @@ def list_attackers():
         detections = DetectionLog.query.filter_by(session_id=s.id).all()
         for det in detections:
             entry["attack_types"].add(det.detection_type)
+            
+        # Also include any flags attached directly to the session config
+        if getattr(s, "detection_flags", None):
+            try:
+                flags = s.detection_flags
+                if isinstance(flags, str):
+                    import json
+                    flags = json.loads(flags)
+                for f in flags:
+                    entry["attack_types"].add(f)
+            except Exception:
+                pass
 
         # Track time range
         if s.created_at:
