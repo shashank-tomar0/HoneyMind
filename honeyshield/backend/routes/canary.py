@@ -18,6 +18,8 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify, send_file, current_app
 
 from honeyshield.backend.models import db, CanaryHit, AttackSession
+from honeyshield.backend.sockets import socketio
+from honeyshield.backend.geolocation import geolocate_ip
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +80,43 @@ def canary_ping(token_id: str):
     db.session.commit()
 
     logger.warning(
-        "CANARY TOKEN TRIGGERED: token=%s real_ip=%s ua=%s",
+        "🪤 CANARY TOKEN TRIGGERED: token=%s real_ip=%s ua=%s",
         token_id, real_ip, real_ua[:80],
     )
+
+    # ── Emit real-time alert to Analyst Dashboard ─────────────────
+    geo = geolocate_ip(real_ip)
+
+    resolved_ip = geo.get("resolved_ip") or real_ip
+
+    socketio.emit("attack_event", {
+        "session_id": token_meta.get("session_id", f"canary-{token_id[:8]}"),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "attack_type": "CANARY_TRIGGER",
+        "threat_level": "CRITICAL",
+        "threat_score": 95,
+        "payload": f"🪤 REAL IP EXPOSED: {resolved_ip} — Bait file: {token_meta.get('file_name', 'unknown')}",
+        "geo": {
+            "lat": geo["lat"],
+            "lng": geo["lng"],
+            "country": geo["country"],
+            "country_code": geo["country_code"],
+            "city": geo.get("city", "Unknown"),
+        },
+        "attacker_ip": resolved_ip,
+        "real_ip": resolved_ip,
+        "attack_vector": "CANARY_TRIGGER",
+        "attacker_profile": "File Exfiltrator",
+        "classification_confidence": 99.0,
+        "anomaly_score": 95,
+        "is_anomaly": True,
+    })
+
+    socketio.emit("anomaly_alert", {
+        "type": "🪤 Canary Token Triggered!",
+        "description": f"REAL IP EXPOSED: {resolved_ip} — Attacker opened '{token_meta.get('file_name', 'unknown')}' from {geo['city']}, {geo['country']}",
+        "severity": "CRITICAL",
+    })
 
     # Return invisible 1x1 GIF
     return send_file(
@@ -156,6 +192,63 @@ def generate_bait():
 
     logger.info("Generated bait file: type=%s token=%s name=%s",
                 file_type, token_id, filename)
+
+    # ── INSTANT CANARY TRIGGER on download ──────────────────────────
+    # The download itself proves data exfiltration intent.
+    # Fire the alert immediately — don't wait for the file to be opened.
+    downloader_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    downloader_ua = request.headers.get("User-Agent", "")
+
+    # Record the hit in the database
+    hit = CanaryHit(
+        token_id=token_id,
+        session_id=session_id,
+        bait_file_type=file_type,
+        bait_file_name=filename,
+        real_ip=downloader_ip,
+        real_user_agent=downloader_ua,
+    )
+    db.session.add(hit)
+    db.session.commit()
+
+    # Resolve the real public IP
+    geo = geolocate_ip(downloader_ip)
+    resolved_ip = geo.get("resolved_ip") or downloader_ip
+
+    logger.warning(
+        "🪤 CANARY TRIGGERED ON DOWNLOAD: file=%s real_ip=%s token=%s",
+        filename, resolved_ip, token_id,
+    )
+
+    # Emit to Analyst Dashboard
+    socketio.emit("attack_event", {
+        "session_id": session_id or f"canary-{token_id[:8]}",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "attack_type": "CANARY_TRIGGER",
+        "threat_level": "CRITICAL",
+        "threat_score": 95,
+        "payload": f"🪤 REAL IP EXPOSED: {resolved_ip} — Downloaded: {filename}",
+        "geo": {
+            "lat": geo["lat"],
+            "lng": geo["lng"],
+            "country": geo["country"],
+            "country_code": geo["country_code"],
+            "city": geo.get("city", "Unknown"),
+        },
+        "attacker_ip": resolved_ip,
+        "real_ip": resolved_ip,
+        "attack_vector": "CANARY_TRIGGER",
+        "attacker_profile": "Data Exfiltrator",
+        "classification_confidence": 99.0,
+        "anomaly_score": 95,
+        "is_anomaly": True,
+    })
+
+    socketio.emit("anomaly_alert", {
+        "type": "🪤 Canary Token Triggered!",
+        "description": f"REAL IP EXPOSED: {resolved_ip} — Attacker downloaded '{filename}' from {geo.get('city', '?')}, {geo['country']}",
+        "severity": "CRITICAL",
+    })
 
     return send_file(
         BytesIO(content),

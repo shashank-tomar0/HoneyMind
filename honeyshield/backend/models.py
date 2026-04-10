@@ -260,3 +260,45 @@ class DetectionLog(db.Model):
             "details": self.details,
             "session_id": self.session_id,
         }
+
+
+# ── Legitimate User ─────────────────────────────────────────────────────
+
+
+class LegitUser(db.Model):
+    """
+    Legitimate users who are allowed through the honeypot to the real app.
+    Stored in the database instead of hardcoded credentials.
+    """
+    __tablename__ = "users_database"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    full_name = db.Column(db.String(200), nullable=True)
+    role = db.Column(db.String(50), default="user")  # admin, analyst, user
+    email = db.Column(db.String(200), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    last_login = db.Column(db.DateTime, nullable=True)
+
+    def set_password(self, password: str) -> None:
+        from werkzeug.security import generate_password_hash
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+
+    def check_password(self, password: str) -> bool:
+        from werkzeug.security import check_password_hash
+        return check_password_hash(self.password_hash, password)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "username": self.username,
+            "full_name": self.full_name,
+            "role": self.role,
+            "email": self.email,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }
+

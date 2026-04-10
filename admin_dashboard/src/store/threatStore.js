@@ -75,6 +75,7 @@ const useThreatStore = create((set, get) => ({
       classification_confidence: event.classification_confidence,
       anomaly_score: event.anomaly_score,
       is_anomaly: event.is_anomaly,
+      real_ip: event.real_ip || null,
     };
 
     set((state) => {

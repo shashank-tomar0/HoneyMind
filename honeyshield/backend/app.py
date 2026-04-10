@@ -58,6 +58,8 @@ def create_app(config_path: Optional[str] = None) -> Flask:
     with app.app_context():
         db.create_all()
         logger.info("Database tables created/verified.")
+        _seed_default_users()
+
 
     # ── Initialize Detection Engine ───────────────────────────────────
     _init_detectors(app, raw_config)
@@ -155,6 +157,52 @@ def _init_ml_classifier(app: Flask, config: dict) -> None:
     except Exception as e:
         logger.warning("ML Classifier failed to initialize: %s", e)
         app.config["ML_CLASSIFIER"] = None
+
+
+def _seed_default_users() -> None:
+    """Seed the users_database table with default legitimate users if empty."""
+    from honeyshield.backend.models import LegitUser
+
+    if LegitUser.query.count() > 0:
+        logger.info("Users database already seeded (%d users).", LegitUser.query.count())
+        return
+
+    default_users = [
+        {
+            "username": "admin",
+            "password": "SuperSecretP@ss2024!",
+            "full_name": "System Administrator",
+            "role": "admin",
+            "email": "admin@nexuscorp.internal",
+        },
+        {
+            "username": "sysadmin",
+            "password": "RootAccess#99",
+            "full_name": "Network Operations",
+            "role": "admin",
+            "email": "sysadmin@nexuscorp.internal",
+        },
+        {
+            "username": "j.richardson",
+            "password": "ITadmin#01",
+            "full_name": "James Richardson",
+            "role": "analyst",
+            "email": "j.richardson@nexuscorp.internal",
+        },
+    ]
+
+    for u in default_users:
+        user = LegitUser(
+            username=u["username"],
+            full_name=u["full_name"],
+            role=u["role"],
+            email=u["email"],
+        )
+        user.set_password(u["password"])
+        db.session.add(user)
+
+    db.session.commit()
+    logger.info("Seeded %d default users into users_database.", len(default_users))
 
 
 # ── Entry Point ───────────────────────────────────────────────────────────

@@ -21,38 +21,68 @@ _simulation_thread = None
 _thread_lock = threading.Lock()
 
 def _get_live_stats():
-    """Calculate live statistics for the dashboard."""
-    # Real logic would query the DB
+    """Calculate live statistics from the real database."""
+    from honeyshield.backend.models import CredentialAttempt, SessionEvent, DetectionLog
+
     total = AttackSession.query.count()
     active = AttackSession.query.filter(AttackSession.status != "COMPLETED").count()
-    
+    total_events = SessionEvent.query.count()
+    total_creds = CredentialAttempt.query.count()
+    total_detections = DetectionLog.query.count()
+
+    # Calculate real avg threat score
+    sessions = AttackSession.query.filter(AttackSession.ml_confidence.isnot(None)).all()
+    avg_score = 0
+    if sessions:
+        avg_score = round(sum(s.ml_confidence or 0 for s in sessions) / len(sessions) * 10, 1)
+
+    # Get attack vector distribution
+    detection_types = db.session.query(
+        DetectionLog.detection_type, db.func.count(DetectionLog.id)
+    ).group_by(DetectionLog.detection_type).all()
+    attack_vectors = {dt: count for dt, count in detection_types}
+
     return {
-        "total_sessions": total + 1240, # Add base for visual bulk
-        "active_sessions": active + random.randint(15, 30),
-        "avg_threat_score": 7.4,
-        "total_events": total * 14 + 8900
+        "total_sessions": total,
+        "active_sessions": active,
+        "avg_threat_score": avg_score,
+        "total_events": total_events + total_creds + total_detections,
+        "attack_vectors": attack_vectors,
     }
 
 def _get_live_sessions():
-    """Get active sessions for snapshot."""
+    """Get active sessions from the real database."""
+    from honeyshield.backend.geolocation import geolocate_ip
+
     sessions = AttackSession.query.order_by(AttackSession.created_at.desc()).limit(15).all()
-    
-    # Format according to React's expected schema
+
     res = []
     for s in sessions:
+        # Use stored geo data, or resolve from IP if not available
+        if s.geo_country and s.geo_country != "Unknown":
+            geo = {
+                "lat": 20.59,  # Default if not stored
+                "lng": 78.96,
+                "country": s.geo_country,
+                "country_code": "XX",
+                "city": s.geo_city or "Unknown",
+            }
+        else:
+            geo = geolocate_ip(s.attacker_ip)
+
         res.append({
             "session_id": s.id,
             "start_time": s.created_at.isoformat() if s.created_at else None,
-            "threat_score": s.risk_score or random.randint(3, 9),
-            "threat_level": s.ml_action or ("HIGH" if s.risk_score and s.risk_score > 6 else "LOW"),
+            "threat_score": int((s.ml_confidence or 0.5) * 10),
+            "threat_level": s.ml_action or "LOW",
             "geo": {
-                "lat": random.uniform(-40, 60),
-                "lng": random.uniform(-120, 140),
-                "country": s.geo_country or "Unknown",
-                "country_code": "US",
-                "city": s.geo_city or "Unknown"
+                "lat": geo["lat"],
+                "lng": geo["lng"],
+                "country": geo["country"],
+                "country_code": geo.get("country_code", "XX"),
+                "city": geo.get("city", "Unknown"),
             },
-            "attacker_ip": s.attacker_ip,
+            "attacker_ip": geo.get("resolved_ip") or s.attacker_ip,
             "is_active": s.status != "COMPLETED"
         })
     return res

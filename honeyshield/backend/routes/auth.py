@@ -200,19 +200,22 @@ def honeypot_login():
 
     else:  # LEGIT
         # ── Real Database Verification ───────────────────────────────────
-        # If the ML determines it is a human, we actually check their password
-        REAL_USERS_DB = {
-            "admin": "SuperSecretP@ss2024!",
-            "sysadmin": "RootAcess#99",
-            "j.richardson": "ITadmin#01"
-        }
+        # Query the users_database table instead of hardcoded credentials
+        from honeyshield.backend.models import LegitUser
 
-        if username in REAL_USERS_DB and password == REAL_USERS_DB[username]:
+        user = LegitUser.query.filter_by(username=username, is_active=True).first()
+
+        if user and user.check_password(password):
+            # Update last login timestamp
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+
             # Legit user with correct password! Route to REAL application.
             return jsonify({
                 "status": "success",
                 "message": "Login successful",
                 "redirect": "/internal_corp_app",  # The actual production app
+                "user": user.to_dict(),
             }), 200
         else:
             # Legit human, but typed the wrong password (standard rejection)
@@ -294,6 +297,7 @@ def _emit_attack_to_dashboard(
     """Push a real-time attack event to the React Analyst Dashboard via WebSocket."""
     import random
     from datetime import datetime, timezone
+    from honeyshield.backend.geolocation import geolocate_ip
 
     # Map ML action to threat levels the dashboard understands
     threat_map = {
@@ -307,18 +311,13 @@ def _emit_attack_to_dashboard(
     # Build attack type from detection flags
     attack_type = detection_flags[0] if detection_flags else "CREDENTIAL_ATTACK"
 
-    # Pick a random geo for demo (in production, use real IP geolocation)
-    countries = [
-        {"lat": 55.75, "lng": 37.62, "country": "Russia", "code": "RU", "city": "Moscow"},
-        {"lat": 39.90, "lng": 116.40, "country": "China", "code": "CN", "city": "Beijing"},
-        {"lat": -23.55, "lng": -46.63, "country": "Brazil", "code": "BR", "city": "São Paulo"},
-        {"lat": 40.71, "lng": -74.01, "country": "United States", "code": "US", "city": "New York"},
-        {"lat": 52.52, "lng": 13.41, "country": "Germany", "code": "DE", "city": "Berlin"},
-        {"lat": 35.69, "lng": 51.39, "country": "Iran", "code": "IR", "city": "Tehran"},
-        {"lat": 28.61, "lng": 77.21, "country": "India", "code": "IN", "city": "New Delhi"},
-        {"lat": 37.57, "lng": 126.98, "country": "South Korea", "code": "KR", "city": "Seoul"},
-    ]
-    geo = random.choice(countries)
+    # Real IP geolocation lookup
+    geo = geolocate_ip(ip)
+
+    # Save geolocation to the attack session record in the database
+    session.geo_country = geo.get("country")
+    session.geo_city = geo.get("city")
+    db.session.commit()
 
     # Emit attack_event — this feeds the Globe arcs + Live Feed
     event_payload = {
@@ -332,10 +331,10 @@ def _emit_attack_to_dashboard(
             "lat": geo["lat"],
             "lng": geo["lng"],
             "country": geo["country"],
-            "country_code": geo["code"],
+            "country_code": geo["country_code"],
             "city": geo["city"],
         },
-        "attacker_ip": ip,
+        "attacker_ip": geo.get("resolved_ip") or ip,
         "attack_vector": attack_type,
         "attacker_profile": "Automated" if ml_action == "ATTACKER" else "Manual",
         "classification_confidence": round(ml_confidence * 100, 1),

@@ -62,7 +62,8 @@ async function downloadBait(type, filename) {
   // This file contains a 1x1 GIF that will ping back to the flask server when opened
   
   try {
-    const response = await fetch(`/api/canary/generate?type=${type}&filename=${filename}`);
+    const sessionToken = localStorage.getItem('auth_token') || 'unknown';
+    const response = await fetch(`/api/canary/generate?type=${type}&filename=${filename}&session_id=${sessionToken}`);
     if (!response.ok) throw new Error("File generation failed");
     
     // Convert to downloadable blob

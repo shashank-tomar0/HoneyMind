@@ -6,7 +6,11 @@ const BACKEND_URL = 'http://localhost:5000';
 let socket = null;
 
 export function connectSocket() {
-  if (socket?.connected) return socket;
+  // Disconnect existing socket to prevent duplicates (React StrictMode)
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
 
   socket = io(BACKEND_URL, {
     transports: ['websocket', 'polling'],

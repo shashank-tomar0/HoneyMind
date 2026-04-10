@@ -12,9 +12,12 @@ function App() {
   const [page, setPage] = useState('dashboard');
   const { setSelectedSession } = useThreatStore();
 
-  // Connect WebSocket on mount
+  // Connect WebSocket on mount (cleanup prevents StrictMode duplicates)
   useEffect(() => {
-    connectSocket();
+    const sock = connectSocket();
+    return () => {
+      if (sock) sock.disconnect();
+    };
   }, []);
 
   const handleSelectSession = (sessionId) => {

@@ -94,6 +94,9 @@ export default function LiveFeed({ onSelectSession }) {
                   <DetailItem label="CONFIDENCE" value={`${ev.classification_confidence}%`} />
                   <DetailItem label="ANOMALY SCORE" value={`${ev.anomaly_score}%`} />
                   <DetailItem label="LOCATION" value={`${ev.city}, ${ev.country}`} />
+                  {ev.real_ip && (
+                    <DetailItem label="🪤 REAL IP EXPOSED" value={ev.real_ip} mono />
+                  )}
                 </div>
                 <button className="btn btn-cyan" style={{ marginTop: 8, fontSize: 11 }}
                   onClick={(e) => { e.stopPropagation(); onSelectSession?.(ev.session_id); }}>
