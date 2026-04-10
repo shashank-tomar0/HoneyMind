@@ -8,36 +8,13 @@ if (!localStorage.getItem('auth_token')) {
   window.location.href = 'index.html'; // Kick them out if they bypassed login
 }
 
-// Global AI data
-let aiNetworkLogs = [];
-let aiTelemetry = null;
-
-// Fetch AI Decoys on load
-fetch('/api/decoy/list')
-  .then(r => r.json())
-  .then(data => {
-    if (data.network_logs && Array.isArray(data.network_logs)) {
-      aiNetworkLogs = data.network_logs;
-    }
-    if (data.telemetry) {
-      aiTelemetry = data.telemetry;
-      // Set initial telemetry from AI
-      if (aiTelemetry.active_connections) document.getElementById('activeConns').innerText = aiTelemetry.active_connections.toLocaleString();
-      if (aiTelemetry.cpu_load) document.getElementById('cpuLoad').innerText = aiTelemetry.cpu_load;
-      if (aiTelemetry.firewall_drops) document.getElementById('drops').innerText = aiTelemetry.firewall_drops;
-    }
-  })
-  .catch(err => console.error("No AI decoys loaded", err));
-
 // 2. Animate Fake Telemetry
 setInterval(() => {
   const active = parseInt(document.getElementById('activeConns').innerText.replace(',', ''));
   const change = Math.floor(Math.random() * 5) - 2; // -2 to +2
   document.getElementById('activeConns').innerText = (active + change).toLocaleString();
   
-  const currentCpuStr = document.getElementById('cpuLoad').innerText;
-  const currentCpu = parseInt(currentCpuStr) || 42;
-  const cpu = Math.max(10, Math.min(95, currentCpu + (Math.floor(Math.random() * 7) - 3)));
+  const cpu = Math.max(10, Math.min(95, parseInt(document.getElementById('cpuLoad').innerText) + (Math.floor(Math.random() * 7) - 3)));
   document.getElementById('cpuLoad').innerText = `${cpu}%`;
 }, 3000); // Every 3s
 
@@ -50,27 +27,17 @@ const statusText = ['GRANTED', 'CHALLENGE'];
 function addFakeLog() {
   const tr = document.createElement('tr');
   const now = new Date();
+  const time = now.toTimeString().split(' ')[0];
   
-  let timeStr = now.toTimeString().split(' ')[0];
-  let srvStr = services[Math.floor(Math.random() * services.length)];
-  let ipStr = `10.0.${Math.floor(Math.random()*5)}.${Math.floor(Math.random()*254)+1}`;
-  let stClass = statuses[Math.random() > 0.8 ? 1 : 0];
-  let stTxt = stClass === 'bg-yellow' ? 'CHALLENGE' : 'GRANTED';
-
-  // Inject AI data if available
-  if (aiNetworkLogs.length > 0) {
-    const aiLog = aiNetworkLogs[Math.floor(Math.random() * aiNetworkLogs.length)];
-    if (aiLog.service) srvStr = aiLog.service;
-    if (aiLog.ip) ipStr = aiLog.ip;
-    if (aiLog.status) stTxt = aiLog.status;
-    if (aiLog.status_color) stClass = aiLog.status_color;
-  }
+  const srv = services[Math.floor(Math.random() * services.length)];
+  const ip = `10.0.${Math.floor(Math.random()*5)}.${Math.floor(Math.random()*254)+1}`;
+  const stIndex = Math.random() > 0.8 ? 1 : 0; // 20% chance of challenge
 
   tr.innerHTML = `
-    <td>${timeStr}</td>
-    <td style="font-family: monospace;">${srvStr}</td>
-    <td style="color: var(--text-muted);">${ipStr}</td>
-    <td><span class="status-badge ${stClass}">${stTxt}</span></td>
+    <td>${time}</td>
+    <td style="font-family: monospace;">${srv}</td>
+    <td style="color: var(--text-muted);">${ip}</td>
+    <td><span class="status-badge ${statuses[stIndex]}">${statusText[stIndex]}</span></td>
   `;
 
   tableBody.insertBefore(tr, tableBody.firstChild);
