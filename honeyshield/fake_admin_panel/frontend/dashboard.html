@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusCorp | System Administration</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/global.css">
+  <style>
+    body {
+      align-items: flex-start;
+      padding: 2rem;
+    }
+    .dashboard-container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 2rem;
+      z-index: 10;
+    }
+
+    /* Top navbar */
+    .navbar {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), #8b5cf6);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    /* Main Content */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .card h2 {
+      margin-bottom: 1.5rem;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .stat-box {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 1.25rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: var(--primary);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: white;
+      margin: 0.5rem 0;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* Logs Table */
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .log-table th, .log-table td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .log-table th {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .status-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .bg-green { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .bg-yellow { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+    /* Bait Downloads Panel */
+    .bait-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .bait-item:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .bait-info h4 {
+      color: white;
+      margin-bottom: 0.25rem;
+      font-size: 0.95rem;
+    }
+
+    .bait-info p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .btn-download {
+      background: transparent;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-download:hover {
+      background: var(--primary);
+      color: white;
+    }
+    
+    /* Responsive */
+    @media (max-width: 900px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body class="fade-in">
+
+  <div class="dashboard-container">
+    <!-- Navbar -->
+    <div class="navbar">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <span style="font-weight:600; color:white; font-size:1.1rem;">NexusCorp Admin</span>
+      </div>
+      <div class="user-profile">
+        <span style="font-size:0.9rem;">sysadmin_root</span>
+        <div class="avatar">S</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      
+      <!-- Metrics -->
+      <div class="card">
+        <h2>System Telemetry</h2>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Active Connections</div>
+            <div class="stat-value" id="activeConns">1,492</div>
+            <div class="stat-label" style="color: #34d399;">+12% vs last hr</div>
+          </div>
+          <div class="stat-box" style="--primary: #f59e0b;">
+            <div class="stat-label">CPU Load Average</div>
+            <div class="stat-value" id="cpuLoad">42%</div>
+            <div class="stat-label" style="color: #fbbf24;">Stable</div>
+          </div>
+          <div class="stat-box" style="--primary: #ef4444;">
+            <div class="stat-label">Blocked Firewall Drops</div>
+            <div class="stat-value" id="drops">89</div>
+            <div class="stat-label" style="color: #f87171;">Last 24 hrs</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Logs (Fake) -->
+      <div class="card">
+        <h2>Live Access Logs</h2>
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Service</th>
+              <th>IP Origin</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sidebar / Baits -->
+    <div class="sidebar">
+      
+      <div class="card" style="margin-bottom: 2rem;">
+        <h2 style="color: #f87171;">⚠️ Network Alert</h2>
+        <p style="font-size: 0.875rem; line-height: 1.5; color: var(--text-muted);">
+          Unusual port scanning detected from subnet 10.0.5.x. All production DB backups must be downloaded immediately via secure channel below.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Secure Archives</h2>
+        
+        <div class="bait-item">
+          <div class="bait-info">
+            <h4>prod_db_dump.xlsx</h4>
+            <p>Customer PII & Hashes</p>
+          </div>
+          <button class="btn-download" onclick="downloadBait('xlsx', 'prod_db_dump.xlsx')">Download</button>
+        </div>
+
+        <div class="bait-item">
+          <div class="bait-info">
+            <h4>network_topology.pdf</h4>
+            <p>Internal VLAN routing</p>
+          </div>
+          <button class="btn-download" onclick="downloadBait('pdf', 'network_topology.pdf')">Download</button>
+        </div>
+
+        <div class="bait-item">
+          <div class="bait-info">
+            <h4>Q3_Payroll_Records.xlsx</h4>
+            <p>Confidential Financials</p>
+          </div>
+          <button class="btn-download" onclick="downloadBait('xlsx', 'payroll.xlsx')">Download</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

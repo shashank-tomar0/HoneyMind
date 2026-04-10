@@ -1,0 +1,45 @@
+# HoneyShield — Core Dependencies
+
+# ML Pipeline
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Visualization (optional, for evaluator charts)
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Web Framework (for honeypot services & API)
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+
+# Fake SSH Service
+paramiko>=3.3.0
+
+# Fake FTP Service
+pyftpdlib>=1.5.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+alembic>=1.12.0
+
+# Cache / Session Store
+redis>=5.0.0
+
+# PDF Reports
+reportlab>=4.0.0
+
+# Scheduling
+schedule>=1.2.0
+
+# IP Enrichment
+requests>=2.31.0
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0.0
+openpyxl>=3.1.0
+
+# WebSockets for Dashboard
+flask-socketio>=5.3.6
+eventlet>=0.33.3
