@@ -1,3 +1,87 @@
+/* ── Attacker Page: Split layout ──────────────────────── */
+.attacker-page {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 10px;
+  height: 100%;
+  padding: 10px;
+  overflow: hidden;
+}
+
+/* ── Attacker List (Left Panel) ── */
+.attacker-list {
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  z-index: 2;
+}
+
+.attacker-row {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.attacker-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.attacker-row--active {
+  background: rgba(0, 212, 255, 0.08) !important;
+  border-left: 3px solid var(--cyan);
+}
+
+.attacker-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.attacker-row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.attacker-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.atk-tag {
+  padding: 1px 6px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 3px;
+  color: var(--cyan);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+
+/* ── Detail Panel (Right) ── */
+.attacker-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+/* ── Empty state ── */
 .attacker-empty {
   display: flex;
   flex-direction: column;
@@ -8,43 +92,31 @@
 }
 .empty-icon { font-size: 48px; opacity: 0.4; }
 .empty-msg { font-weight: 600; }
-.empty-sub { }
 
-.attacker-profile {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-  height: 100%;
-  overflow-y: auto;
-}
-
+/* ── Profile Header ── */
 .profile-header {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 16px;
 }
-
 .profile-main-info {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-
 .profile-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
   color: var(--text-secondary);
+  flex-wrap: wrap;
 }
 
-/* Threat score ring */
-.profile-score {
-  flex-shrink: 0;
-}
+/* ── Threat Score Ring ── */
+.profile-score { flex-shrink: 0; }
 .score-ring {
   width: 70px; height: 70px;
   border-radius: 50%;
@@ -77,13 +149,12 @@
   letter-spacing: 0.5px;
 }
 
-/* Details grid */
+/* ── Profile Detail Grid ── */
 .profile-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 10px;
 }
-
 .detail-box {
   padding: 12px 14px;
   display: flex;
@@ -97,6 +168,7 @@
   padding-bottom: 6px;
 }
 
+/* ── Info Rows ── */
 .info-row {
   display: flex;
   align-items: center;
@@ -106,10 +178,8 @@
 .info-label { flex-shrink: 0; }
 .info-value { text-align: right; color: var(--text-primary); }
 
-/* Terminal replay */
-.session-replay {
-  flex-shrink: 0;
-}
+/* ── Terminal / Timeline ── */
+.session-replay { flex-shrink: 0; }
 .replay-header {
   display: flex;
   align-items: center;
@@ -117,13 +187,12 @@
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
 }
-
 .terminal {
   padding: 10px 14px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 250px;
+  max-height: 300px;
   overflow-y: auto;
   font-family: var(--font-mono);
 }
@@ -132,10 +201,10 @@
   align-items: center;
   gap: 8px;
   padding: 3px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
   animation: feed-slide-in 0.2s ease;
 }
-.terminal-prompt { font-size: 11px; flex-shrink: 0; }
+.terminal-time { flex-shrink: 0; width: 70px; }
 .terminal-cmd {
   flex: 1;
   color: var(--text-primary);

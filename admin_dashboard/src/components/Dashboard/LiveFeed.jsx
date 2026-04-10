@@ -15,8 +15,10 @@ function getFlag(code) {
 
 function formatTime(ts) {
   if (!ts) return '--:--:--';
-  const d = new Date(ts);
-  return d.toLocaleTimeString('en-US', { hour12: false });
+  const raw = String(ts);
+  // Ensure UTC timestamps get parsed correctly
+  const d = new Date(raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z');
+  return d.toLocaleTimeString('en-IN', { hour12: false, timeZone: 'Asia/Kolkata' });
 }
 
 const LEVEL_CLASS = {
@@ -94,10 +96,79 @@ export default function LiveFeed({ onSelectSession }) {
                   <DetailItem label="CONFIDENCE" value={`${ev.classification_confidence}%`} />
                   <DetailItem label="ANOMALY SCORE" value={`${ev.anomaly_score}%`} />
                   <DetailItem label="LOCATION" value={`${ev.city}, ${ev.country}`} />
-                  {ev.real_ip && (
-                    <DetailItem label="🪤 REAL IP EXPOSED" value={ev.real_ip} mono />
-                  )}
                 </div>
+
+                {/* ── Canary: Dual IP Comparison Card ── */}
+                {ev.real_ip_geo && (
+                  <div style={{
+                    marginTop: 10,
+                    padding: '14px',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    borderRadius: 8,
+                  }}>
+                    <div className="mono text-xs" style={{ color: '#f87171', fontWeight: 700, marginBottom: 10 }}>
+                      🪤 CANARY TOKEN — IP COMPARISON
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      {/* LEFT: Original Attack IP */}
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: 6,
+                      }}>
+                        <div className="mono text-xs" style={{ color: '#60a5fa', fontWeight: 700, marginBottom: 6 }}>
+                          🌐 HONEYPOT LOGIN IP
+                        </div>
+                        {ev.original_ip_geo ? (
+                          <>
+                            <DetailItem label="IP" value={ev.original_ip_geo.ip} mono />
+                            <DetailItem label="LOCATION" value={`${ev.original_ip_geo.city}, ${ev.original_ip_geo.country}`} />
+                            <DetailItem label="ISP" value={ev.original_ip_geo.isp} />
+                            <DetailItem label="COORDS" value={`${ev.original_ip_geo.lat?.toFixed(4)}, ${ev.original_ip_geo.lng?.toFixed(4)}`} mono />
+                          </>
+                        ) : (
+                          <div className="dim text-xs">No session linked</div>
+                        )}
+                      </div>
+
+                      {/* RIGHT: Canary Revealed IP */}
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: 6,
+                      }}>
+                        <div className="mono text-xs" style={{ color: '#f87171', fontWeight: 700, marginBottom: 6 }}>
+                          🪤 CANARY REVEALED IP
+                        </div>
+                        <DetailItem label="IP" value={ev.real_ip_geo.ip} mono />
+                        <DetailItem label="LOCATION" value={`${ev.real_ip_geo.city}, ${ev.real_ip_geo.country}`} />
+                        <DetailItem label="ISP" value={ev.real_ip_geo.isp} />
+                        <DetailItem label="COORDS" value={`${ev.real_ip_geo.lat?.toFixed(4)}, ${ev.real_ip_geo.lng?.toFixed(4)}`} mono />
+                      </div>
+                    </div>
+
+                    {/* Match indicator */}
+                    <div className="mono text-xs" style={{
+                      marginTop: 8,
+                      padding: '6px 10px',
+                      background: ev.original_ip === ev.real_ip
+                        ? 'rgba(52, 211, 153, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                      border: `1px solid ${ev.original_ip === ev.real_ip
+                        ? 'rgba(52, 211, 153, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                      borderRadius: 4,
+                      color: ev.original_ip === ev.real_ip ? '#34d399' : '#fbbf24',
+                      textAlign: 'center',
+                    }}>
+                      {ev.original_ip === ev.real_ip
+                        ? '✅ IPs MATCH — Same network origin confirmed'
+                        : '⚠️ IPs DIFFER — Attacker may be using VPN/proxy at login'}
+                    </div>
+                  </div>
+                )}
+
                 <button className="btn btn-cyan" style={{ marginTop: 8, fontSize: 11 }}
                   onClick={(e) => { e.stopPropagation(); onSelectSession?.(ev.session_id); }}>
                   View Session →

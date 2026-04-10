@@ -48,7 +48,7 @@ export default function Header({ page }) {
           {connected ? 'LIVE FEED' : 'RECONNECTING'}
         </div>
         <div className="header-time mono text-xs dim">
-          {new Date().toLocaleTimeString()}
+          {new Date().toLocaleTimeString('en-IN', { hour12: true, timeZone: 'Asia/Kolkata' })} IST
         </div>
       </div>
     </header>

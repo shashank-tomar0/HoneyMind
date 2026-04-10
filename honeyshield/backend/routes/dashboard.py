@@ -305,3 +305,111 @@ def top_attackers():
             for ip, count, max_risk, last_seen in top
         ],
     }), 200
+
+
+# ── Attackers (full view, excludes LEGIT) ────────────────────────────────
+
+
+@dashboard_bp.route("/attackers", methods=["GET"])
+def list_attackers():
+    """
+    List all attackers from the database, aggregated by IP.
+    Excludes LEGIT (LOW risk) sessions.
+    Returns geo, canary intel, event counts, and attack types.
+    """
+    from honeyshield.backend.geolocation import geolocate_ip
+
+    # Get all non-LEGIT sessions
+    sessions = AttackSession.query.filter(
+        AttackSession.ml_action != "LEGIT",
+    ).order_by(desc(AttackSession.created_at)).all()
+
+    # Aggregate by IP
+    ip_map = {}
+    for s in sessions:
+        ip = s.attacker_ip or "unknown"
+        if ip not in ip_map:
+            geo = geolocate_ip(ip)
+            resolved_ip = geo.get("resolved_ip") or ip
+            ip_map[ip] = {
+                "ip": resolved_ip,
+                "raw_ip": ip,
+                "threat_level": s.ml_action or "MEDIUM",
+                "threat_score": int((s.ml_confidence or 0.5) * 100),
+                "country": s.geo_country or geo.get("country", "Unknown"),
+                "country_code": geo.get("country_code", "XX"),
+                "city": s.geo_city or geo.get("city", "Unknown"),
+                "isp": geo.get("isp", ""),
+                "org": geo.get("org", ""),
+                "lat": geo.get("lat", 0),
+                "lng": geo.get("lng", 0),
+                "attack_types": set(),
+                "session_ids": [],
+                "event_count": 0,
+                "credential_count": 0,
+                "first_seen": s.created_at.isoformat() if s.created_at else None,
+                "last_seen": s.created_at.isoformat() if s.created_at else None,
+                "canary_hits": [],
+            }
+
+        entry = ip_map[ip]
+        entry["session_ids"].append(s.id)
+        entry["event_count"] += (s.events.count() if hasattr(s, 'events') else 0)
+        entry["credential_count"] += (s.credentials.count() if hasattr(s, 'credentials') else 0)
+
+        # Use highest threat level
+        level_priority = {"ATTACKER": 3, "SUSPICIOUS": 2, "MEDIUM": 1}
+        if level_priority.get(s.ml_action, 0) > level_priority.get(entry["threat_level"], 0):
+            entry["threat_level"] = s.ml_action
+        entry["threat_score"] = max(entry["threat_score"], int((s.ml_confidence or 0.5) * 100))
+
+        # Collect attack types from detections
+        detections = DetectionLog.query.filter_by(session_id=s.id).all()
+        for det in detections:
+            entry["attack_types"].add(det.detection_type)
+
+        # Track time range
+        if s.created_at:
+            ts = s.created_at.isoformat()
+            if ts < entry["first_seen"]:
+                entry["first_seen"] = ts
+            if ts > entry["last_seen"]:
+                entry["last_seen"] = ts
+
+    # Attach canary hits
+    canary_hits = CanaryHit.query.order_by(desc(CanaryHit.timestamp)).all()
+    for hit in canary_hits:
+        if hit.session_id:
+            # Find which IP this session belongs to
+            for ip, data in ip_map.items():
+                if hit.session_id in data["session_ids"]:
+                    geo = geolocate_ip(hit.real_ip)
+                    data["canary_hits"].append({
+                        "real_ip": geo.get("resolved_ip") or hit.real_ip,
+                        "city": geo.get("city", "Unknown"),
+                        "country": geo.get("country", "Unknown"),
+                        "isp": geo.get("isp", ""),
+                        "org": geo.get("org", ""),
+                        "lat": geo.get("lat", 0),
+                        "lng": geo.get("lng", 0),
+                        "file": hit.bait_file_name,
+                        "timestamp": hit.timestamp.isoformat() if hit.timestamp else None,
+                    })
+                    break
+
+    # Build response, converting sets to lists
+    result = []
+    for ip, data in ip_map.items():
+        data["attack_types"] = list(data["attack_types"])
+        if not data["attack_types"]:
+            data["attack_types"] = ["CREDENTIAL_ATTACK"]
+        data["session_count"] = len(data["session_ids"])
+        del data["session_ids"]  # Don't leak internal IDs
+        result.append(data)
+
+    # Sort by threat level priority
+    level_sort = {"ATTACKER": 3, "SUSPICIOUS": 2}
+    result.sort(key=lambda x: level_sort.get(x["threat_level"], 0), reverse=True)
+
+    return jsonify({"attackers": result, "total": len(result)}), 200
+

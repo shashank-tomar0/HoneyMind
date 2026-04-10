@@ -302,3 +302,23 @@ class LegitUser(db.Model):
             "last_login": self.last_login.isoformat() if self.last_login else None,
         }
 
+
+# ── Decoy Asset ──────────────────────────────────────────────────────────
+
+class DecoyAsset(db.Model):
+    """
+    Cached AI generated decoys.
+    """
+    __tablename__ = "decoy_assets"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    decoy_type = db.Column(db.String(50), nullable=False, unique=True)
+    content = db.Column(db.JSON, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            "decoy_type": self.decoy_type,
+            "content": self.content,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

@@ -1,116 +1,190 @@
-import React, { useMemo } from 'react';
-import useThreatStore from '../../store/threatStore';
+import React, { useMemo, useState, useEffect } from 'react';
 import './AttackerProfile.css';
 
+const BACKEND = 'http://localhost:5000';
+
 const LEVEL_CLASS = {
-  LOW: 'badge-low', MEDIUM: 'badge-medium',
-  HIGH: 'badge-high', CRITICAL: 'badge-critical',
+  ATTACKER: 'badge-critical', SUSPICIOUS: 'badge-high',
+  HIGH: 'badge-high', CRITICAL: 'badge-critical', MEDIUM: 'badge-medium',
 };
 
 function formatTime(ts) {
   if (!ts) return '–';
-  return new Date(ts).toLocaleString();
+  const raw = String(ts);
+  const d = new Date(raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z');
+  return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+}
+
+function relativeTime(ts) {
+  if (!ts) return '–';
+  const raw = String(ts);
+  const d = new Date(raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z');
+  const diff = Math.round((Date.now() - d) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+  return `${Math.round(diff / 3600)}h ago`;
+}
+
+function getFlag(code) {
+  if (!code || code === 'XX') return '🏴';
+  try {
+    return String.fromCodePoint(
+      ...[...code.toUpperCase()].map((c) => 0x1F1E6 + c.charCodeAt(0) - 65)
+    );
+  } catch { return '🏴'; }
 }
 
 export default function AttackerProfile({ onBack }) {
-  const { selectedSessionId, activeSessions, feedEvents } = useThreatStore();
-  const session = activeSessions[selectedSessionId];
-  const events = useMemo(() =>
-    feedEvents.filter((e) => e.session_id === selectedSessionId).slice(0, 50),
-    [feedEvents, selectedSessionId]
-  );
+  const [attackers, setAttackers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedIp, setSelectedIp] = useState(null);
 
-  if (!selectedSessionId || !session) {
-    return (
-      <div className="attacker-empty glass-card">
-        <div className="empty-icon">👁</div>
-        <div className="empty-msg text-md">Select an attacker to profile</div>
-        <div className="empty-sub dim text-sm">Click any event in the live feed or globe arc</div>
-      </div>
-    );
-  }
+  // Fetch attackers from DB — auto-refresh every 5s
+  useEffect(() => {
+    const fetchAttackers = () => {
+      fetch(`${BACKEND}/api/dashboard/attackers`)
+        .then((r) => r.json())
+        .then((data) => {
+          setAttackers(data.attackers || []);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch attackers:', err);
+          setLoading(false);
+        });
+    };
+    fetchAttackers();
+    const interval = setInterval(fetchAttackers, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const duration = session.start_time
-    ? Math.round((Date.now() - new Date(session.start_time)) / 1000)
-    : 0;
+  const selected = selectedIp ? attackers.find((a) => a.ip === selectedIp) : null;
 
   return (
-    <div className="attacker-profile">
-      {/* Header */}
-      <div className="profile-header glass-card">
-        <button className="btn btn-cyan" onClick={onBack}>← Back</button>
-        <div className="profile-main-info">
-          <div className="profile-ip mono text-2xl glow-cyan">
-            {session.attacker_ip?.replace('sim_', '') || '?.?.?.?'}
+    <div className="attacker-page">
+      {/* Left: Attacker list */}
+      <div className="attacker-list glass-card">
+        <div className="list-header">
+          <span className="mono text-sm font-bold glow-cyan">⚡ THREAT ACTORS</span>
+          <span className="dim text-xs mono">{attackers.length} hostile</span>
+        </div>
+
+        {loading && (
+          <div className="dim mono text-xs" style={{ padding: 16, textAlign: 'center' }}>
+            Loading from database...
           </div>
-          <div className="profile-meta">
-            <span>{session.city}, {session.country}</span>
-            <span className="dim">·</span>
-            <span className="mono text-xs">{session.isp}</span>
-            <span className="dim">·</span>
-            <span className={`badge ${LEVEL_CLASS[session.threat_level]}`}>{session.threat_level}</span>
+        )}
+
+        {!loading && attackers.length === 0 && (
+          <div className="dim mono text-xs" style={{ padding: 16, textAlign: 'center' }}>
+            No hostile actors detected yet.<br />
+            Attack the honeypot to populate.
           </div>
-        </div>
-        <div className="profile-score">
-          <div className="score-ring" style={{ '--score': session.threat_score }}>
-            <div className="score-value mono">{session.threat_score?.toFixed(0)}</div>
-            <div className="score-label dim text-xs">THREAT</div>
-          </div>
-        </div>
-      </div>
+        )}
 
-      {/* Details grid */}
-      <div className="profile-grid">
-        <div className="glass-card detail-box">
-          <div className="detail-box-title mono text-xs dim">SESSION INFO</div>
-          <InfoRow label="Vector" value={session.attack_vector} />
-          <InfoRow label="Profile" value={session.attacker_profile} highlight />
-          <InfoRow label="Events" value={session.total_events} />
-          <InfoRow label="Commands" value={session.command_count} />
-          <InfoRow label="Duration" value={`${duration}s`} />
-          <InfoRow label="Started" value={formatTime(session.start_time)} />
-          <InfoRow label="Status" value={session.is_active ? '🔴 ACTIVE' : '✅ ENDED'} />
-        </div>
-
-        <div className="glass-card detail-box">
-          <div className="detail-box-title mono text-xs dim">GEOGRAPHIC INTEL</div>
-          <InfoRow label="Country" value={`${session.country} (${session.country_code})`} />
-          <InfoRow label="City" value={session.city} />
-          <InfoRow label="ISP" value={session.isp} />
-          <InfoRow label="Latitude" value={session.latitude?.toFixed(4)} />
-          <InfoRow label="Longitude" value={session.longitude?.toFixed(4)} />
-        </div>
-
-        <div className="glass-card detail-box">
-          <div className="detail-box-title mono text-xs dim">AI ASSESSMENT</div>
-          <InfoRow label="Profile Type" value={session.attacker_profile} highlight />
-          <InfoRow label="Threat Score" value={`${session.threat_score?.toFixed(1)} / 100`} />
-          <InfoRow label="Threat Level" value={session.threat_level} />
-        </div>
-      </div>
-
-      {/* Session replay */}
-      <div className="glass-card session-replay">
-        <div className="replay-header">
-          <span className="mono text-sm font-bold glow-lime">$ COMMAND HISTORY</span>
-          <span className="dim text-xs mono">{events.length} events</span>
-        </div>
-        <div className="terminal">
-          {events.length === 0 && (
-            <div className="dim mono text-xs" style={{ padding: '10px' }}>No events logged yet…</div>
-          )}
-          {events.map((ev, i) => (
-            <div key={ev.id || i} className="terminal-line">
-              <span className="terminal-prompt glow-lime">root@honeymind:~$</span>
-              <span className={`terminal-cmd mono text-xs ${ev.is_anomaly ? 'anomaly-cmd' : ''}`}>
-                {ev.payload || '(empty)'}
-              </span>
-              <span className={`badge ${LEVEL_CLASS[ev.threat_level]} terminal-badge`}>
-                {ev.attack_type?.replace(/_/g, ' ') || ev.event_type}
-              </span>
+        {attackers.map((atk) => (
+          <div
+            key={atk.ip}
+            className={`attacker-row ${selectedIp === atk.ip ? 'attacker-row--active' : ''}`}
+            onClick={() => setSelectedIp(atk.ip)}
+          >
+            <div className="attacker-row-top">
+              <span className="mono text-xs" style={{ color: 'var(--cyan)' }}>{atk.ip}</span>
+              <span className={`badge ${LEVEL_CLASS[atk.threat_level]}`}>{atk.threat_level}</span>
             </div>
-          ))}
-        </div>
+            <div className="attacker-row-bottom">
+              <span className="dim text-xs">{getFlag(atk.country_code)} {atk.city}, {atk.country}</span>
+              <span className="dim text-xs mono">{atk.session_count} sessions</span>
+            </div>
+            <div className="attacker-row-tags">
+              {(atk.attack_types || []).map((t) => (
+                <span key={t} className="atk-tag mono text-xs">{t.replace(/_/g, ' ')}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Right: Detail panel */}
+      <div className="attacker-detail">
+        {!selected ? (
+          <div className="attacker-empty glass-card">
+            <div className="empty-icon">👁</div>
+            <div className="empty-msg text-md">Select an attacker to profile</div>
+            <div className="empty-sub dim text-sm">Click any hostile IP on the left</div>
+          </div>
+        ) : (
+          <>
+            {/* Header card */}
+            <div className="profile-header glass-card">
+              <div className="profile-main-info">
+                <div className="profile-ip mono text-2xl glow-cyan">{selected.ip}</div>
+                <div className="profile-meta">
+                  <span>{getFlag(selected.country_code)} {selected.city}, {selected.country}</span>
+                  <span className="dim">·</span>
+                  <span className={`badge ${LEVEL_CLASS[selected.threat_level]}`}>{selected.threat_level}</span>
+                  <span className="dim">·</span>
+                  <span className="mono text-xs dim">{selected.session_count} sessions</span>
+                </div>
+              </div>
+              <div className="profile-score">
+                <div className="score-ring" style={{ '--score': selected.threat_score }}>
+                  <div className="score-value mono">{selected.threat_score}</div>
+                  <div className="score-label dim text-xs">THREAT</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Detail grid */}
+            <div className="profile-grid">
+              <div className="glass-card detail-box">
+                <div className="detail-box-title mono text-xs dim">SESSION INFO</div>
+                <InfoRow label="First Seen" value={formatTime(selected.first_seen)} />
+                <InfoRow label="Last Seen" value={relativeTime(selected.last_seen)} />
+                <InfoRow label="Sessions" value={selected.session_count} />
+                <InfoRow label="Events" value={selected.event_count} />
+                <InfoRow label="Credentials Tried" value={selected.credential_count} />
+                <InfoRow label="Attack Types" value={(selected.attack_types || []).join(', ')} />
+                <InfoRow label="Threat Score" value={`${selected.threat_score} / 100`} />
+              </div>
+
+              <div className="glass-card detail-box">
+                <div className="detail-box-title mono text-xs dim">GEOGRAPHIC INTEL</div>
+                <InfoRow label="Country" value={`${selected.country} (${selected.country_code})`} />
+                <InfoRow label="City" value={selected.city} />
+                <InfoRow label="ISP" value={selected.isp || '–'} />
+                <InfoRow label="Organization" value={selected.org || '–'} />
+                <InfoRow label="Latitude" value={selected.lat?.toFixed(4)} />
+                <InfoRow label="Longitude" value={selected.lng?.toFixed(4)} />
+              </div>
+
+              {/* Canary section */}
+              {selected.canary_hits && selected.canary_hits.length > 0 && (
+                <div className="glass-card detail-box" style={{
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  background: 'rgba(239, 68, 68, 0.05)',
+                }}>
+                  <div className="detail-box-title mono text-xs" style={{ color: '#f87171' }}>
+                    🪤 CANARY TOKEN INTEL ({selected.canary_hits.length} hits)
+                  </div>
+                  {selected.canary_hits.map((ch, i) => (
+                    <div key={i} style={{
+                      padding: '8px 0',
+                      borderBottom: i < selected.canary_hits.length - 1
+                        ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                    }}>
+                      <InfoRow label="Real IP" value={ch.real_ip} highlight />
+                      <InfoRow label="Location" value={`${ch.city}, ${ch.country}`} />
+                      <InfoRow label="ISP" value={ch.isp || '–'} />
+                      <InfoRow label="Bait File" value={ch.file} />
+                      <InfoRow label="Triggered" value={formatTime(ch.timestamp)} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

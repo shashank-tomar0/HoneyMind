@@ -114,8 +114,15 @@ def honeypot_login():
 
     # ── Step 4: Create/Update Attack Session ─────────────────────────
     attack_session = _get_or_create_session(ip, user_agent, session_data)
-    attack_session.ml_action = ml_action
-    attack_session.ml_confidence = ml_confidence
+
+    # NEVER downgrade threat level: ATTACKER > SUSPICIOUS > LEGIT
+    _LEVEL_RANK = {"ATTACKER": 3, "SUSPICIOUS": 2, "LEGIT": 1}
+    old_rank = _LEVEL_RANK.get(attack_session.ml_action, 0)
+    new_rank = _LEVEL_RANK.get(ml_action, 0)
+    if new_rank >= old_rank:
+        attack_session.ml_action = ml_action
+        attack_session.ml_confidence = ml_confidence
+    # Always update these
     attack_session.ml_phase = ml_phase
     attack_session.detection_flags = detection_flags
 

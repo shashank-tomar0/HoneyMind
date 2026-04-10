@@ -104,14 +104,16 @@ def _register_blueprints(app: Flask) -> None:
     from honeyshield.backend.routes.dashboard import dashboard_bp
     from honeyshield.backend.routes.canary import canary_bp
     from honeyshield.backend.routes.intelligence import intelligence_bp
+    from honeyshield.backend.routes.decoy import decoy_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(ml_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(canary_bp)
     app.register_blueprint(intelligence_bp)
+    app.register_blueprint(decoy_bp)
 
-    logger.info("Registered blueprints: auth, ml, dashboard, canary, intelligence")
+    logger.info("Registered blueprints: auth, ml, dashboard, canary, intelligence, decoy")
 
 
 def _init_detectors(app: Flask, config: dict) -> None:

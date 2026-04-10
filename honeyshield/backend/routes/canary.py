@@ -211,17 +211,37 @@ def generate_bait():
     db.session.add(hit)
     db.session.commit()
 
-    # Resolve the real public IP
+    # Resolve the real public IP from canary
     geo = geolocate_ip(downloader_ip)
     resolved_ip = geo.get("resolved_ip") or downloader_ip
 
+    # Look up original attack session IP (the IP used at honeypot login)
+    original_ip = None
+    original_geo = None
+    if session_id:
+        attack_session = AttackSession.query.get(session_id)
+        if attack_session:
+            orig_raw = attack_session.attacker_ip or ""
+            orig_geo_data = geolocate_ip(orig_raw)
+            original_ip = orig_geo_data.get("resolved_ip") or orig_raw
+            original_geo = {
+                "ip": original_ip,
+                "city": orig_geo_data.get("city", "Unknown"),
+                "country": orig_geo_data.get("country", "Unknown"),
+                "country_code": orig_geo_data.get("country_code", "XX"),
+                "lat": orig_geo_data["lat"],
+                "lng": orig_geo_data["lng"],
+                "isp": orig_geo_data.get("isp", "Unknown"),
+                "org": orig_geo_data.get("org", "Unknown"),
+            }
+
     logger.warning(
-        "🪤 CANARY TRIGGERED ON DOWNLOAD: file=%s real_ip=%s token=%s",
-        filename, resolved_ip, token_id,
+        "🪤 CANARY TRIGGERED ON DOWNLOAD: file=%s canary_ip=%s original_ip=%s token=%s",
+        filename, resolved_ip, original_ip or "N/A", token_id,
     )
 
-    # Emit to Analyst Dashboard
-    socketio.emit("attack_event", {
+    # Build payloads
+    attack_payload = {
         "session_id": session_id or f"canary-{token_id[:8]}",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "attack_type": "CANARY_TRIGGER",
@@ -237,18 +257,40 @@ def generate_bait():
         },
         "attacker_ip": resolved_ip,
         "real_ip": resolved_ip,
+        "real_ip_geo": {
+            "ip": resolved_ip,
+            "city": geo.get("city", "Unknown"),
+            "country": geo.get("country", "Unknown"),
+            "country_code": geo.get("country_code", "XX"),
+            "lat": geo["lat"],
+            "lng": geo["lng"],
+            "isp": geo.get("isp", "Unknown"),
+            "org": geo.get("org", "Unknown"),
+        },
+        "original_ip": original_ip,
+        "original_ip_geo": original_geo,
         "attack_vector": "CANARY_TRIGGER",
         "attacker_profile": "Data Exfiltrator",
         "classification_confidence": 99.0,
         "anomaly_score": 95,
         "is_anomaly": True,
-    })
+    }
 
-    socketio.emit("anomaly_alert", {
+    anomaly_payload = {
         "type": "🪤 Canary Token Triggered!",
         "description": f"REAL IP EXPOSED: {resolved_ip} — Attacker downloaded '{filename}' from {geo.get('city', '?')}, {geo['country']}",
         "severity": "CRITICAL",
-    })
+    }
+
+    # Emit via background task so it fires BEFORE send_file blocks
+    def _emit_canary_alert():
+        import time
+        time.sleep(0.1)  # tiny delay to ensure socket loop processes
+        socketio.emit("attack_event", attack_payload, namespace="/")
+        socketio.emit("anomaly_alert", anomaly_payload, namespace="/")
+        logger.info("🪤 Canary WebSocket alerts emitted successfully")
+
+    socketio.start_background_task(_emit_canary_alert)
 
     return send_file(
         BytesIO(content),
