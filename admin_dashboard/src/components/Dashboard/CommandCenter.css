@@ -1,90 +1,115 @@
-.cc-root {
-  position: relative;
+.cc-organized-root {
+  display: flex;
   width: 100%;
   height: 100%;
+  gap: 24px;
+  padding: 24px;
+  background: var(--bg-surface);
+  box-sizing: border-box;
   overflow: hidden;
 }
 
-/* 1. The Globe Background Layer */
-.cc-globe-layer {
-  position: absolute;
-  top: -60px; /* Offset to flow under header if needed */
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-  pointer-events: auto; /* Allow globe interaction */
-}
-
-/* Override existing globe-wrapper radius when it's fullscreen */
-.cc-globe-layer .globe-wrapper {
-  border-radius: 0 !important;
-  background: transparent !important;
-}
-
-/* 2. The Transparent UI Overlay Layer */
-.cc-ui-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  gap: 20px;
-  pointer-events: none; /* Let clicks pass through to globe by default */
-}
-
-/* Re-enable pointer events for actual UI panels */
-.cc-stats-row,
-.cc-right-panels,
-.cc-bottom-row {
-  pointer-events: auto;
-}
-
-/* Stats Row */
-.cc-stats-row {
-  flex-shrink: 0;
-}
-
-/* Middle Row */
-.cc-middle-row {
-  display: flex;
+/* Left Pane Layout */
+.cc-left-pane {
   flex: 1;
-  min-height: 0;
-  gap: 20px;
-}
-
-.cc-globe-spacer {
-  flex: 1; /* Pushes right panels over */
-}
-
-.cc-right-panels {
-  width: 380px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 8px; /* Room for scrollbar */
+}
+
+/* Custom scrollbar for left pane */
+.cc-left-pane::-webkit-scrollbar {
+  width: 6px;
+}
+.cc-left-pane::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.cc-section-block {
   flex-shrink: 0;
-}
-
-.cc-ai-panel {
-  flex: 0 0 auto;
-  max-height: 45%;
-}
-
-.cc-chart-panel {
-  flex: 1;
-  min-height: 0;
-}
-
-/* Bottom Row */
-.cc-bottom-row {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.cc-feed-wrapper {
-  height: 220px;
   width: 100%;
+}
+
+.cc-middle-grid {
+  display: flex;
+  gap: 24px;
+  min-height: 280px;
+  flex-shrink: 0;
+}
+
+.cc-bottom-grid {
+  display: flex;
+  gap: 24px;
+  flex: 1;
+  min-height: 380px;
+}
+
+.cc-grid-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cc-ai-cell {
+  flex: 0 0 350px;
+}
+
+.cc-feed-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.cc-alerts-cell {
+  flex: 0 0 350px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Right Pane Layout */
+.cc-right-pane {
+  width: 480px;
+  min-width: 400px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #040f1e;
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+
+.cc-globe-header {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: 10;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+/* Responsive constraints */
+@media (max-width: 1400px) {
+  .cc-organized-root {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .cc-right-pane {
+    order: -1;
+    width: 100%;
+    height: 500px;
+    flex-shrink: 0;
+  }
+  .cc-left-pane {
+    overflow-y: visible;
+  }
 }

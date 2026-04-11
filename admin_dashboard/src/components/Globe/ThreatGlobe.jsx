@@ -3,7 +3,7 @@ import Globe from 'react-globe.gl';
 import useThreatStore, { LEVEL_COLORS, HONEYPOT } from '../../store/threatStore';
 import './ThreatGlobe.css';
 
-const HONEYPOT_LABEL = { lat: HONEYPOT.lat, lng: HONEYPOT.lng, label: '🍯 HoneyMind HQ', size: 1.2 };
+const HONEYPOT_LABEL = { lat: HONEYPOT.lat, lng: HONEYPOT.lng, label: ' HoneyMind HQ', size: 1.2 };
 
 export default function ThreatGlobe({ onArcClick }) {
   const globeRef = useRef(null);

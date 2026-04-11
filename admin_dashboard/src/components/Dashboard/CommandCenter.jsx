@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import StatsPanel from './StatsPanel';
 import LiveFeed from './LiveFeed';
 import ThreatChart from './ThreatChart';
@@ -12,45 +12,43 @@ export default function CommandCenter({ onSelectSession }) {
   const { feedEvents, stats } = useThreatStore();
 
   return (
-    <div className="cc-root">
-      {/* 1. Full-Bleed Background Globe Layer */}
-      <div className="cc-globe-layer">
-        <ThreatGlobe onArcClick={(arc) => {
-          if (arc?.session_id) onSelectSession?.(arc.session_id);
-        }} />
-      </div>
-
-      {/* 2. Floating UI Overlay Layer */}
-      <div className="cc-ui-overlay">
+    <div className="cc-organized-root">
+      {/* Left side: All analytics and monitoring UI */}
+      <div className="cc-left-pane">
         
-        {/* Top: Stats Blocks */}
-        <div className="cc-stats-row">
+        {/* Unified Stats Ribbon */}
+        <div className="cc-section-block">
           <StatsPanel />
         </div>
 
-        {/* Middle: Empty Space (to see globe) + Right Side Panels */}
-        <div className="cc-middle-row">
-          {/* Spacer to push panels to the right */}
-          <div className="cc-globe-spacer" />
-          
-          <div className="cc-right-panels">
-            <div className="cc-ai-panel">
-              <AIInsights />
-            </div>
-            <div className="cc-chart-panel">
-              <ThreatChart />
-            </div>
+        {/* Charts & AI */}
+        <div className="cc-middle-grid">
+          <div className="cc-grid-cell">
+            <ThreatChart />
+          </div>
+          <div className="cc-grid-cell cc-ai-cell">
+            <AIInsights />
           </div>
         </div>
 
-        {/* Bottom: Feed and Alerts */}
-        <div className="cc-bottom-row">
-          <div className="cc-feed-wrapper">
-             <LiveFeed onSelectSession={onSelectSession} />
+        {/* Live Feed & Anomalies */}
+        <div className="cc-bottom-grid">
+          <div className="cc-feed-cell">
+            <LiveFeed onSelectSession={onSelectSession} />
           </div>
-          <AnomalyAlerts />
+          <div className="cc-alerts-cell">
+            <AnomalyAlerts />
+          </div>
         </div>
+        
+      </div>
 
+      {/* Right side: Globe Panel */}
+      <div className="cc-right-pane glass-card">
+        <div className="cc-globe-header mono dim text-xs">GLOBAL THREAT MAP</div>
+        <ThreatGlobe onArcClick={(arc) => {
+          if (arc?.session_id) onSelectSession?.(arc.session_id);
+        }} />
       </div>
     </div>
   );

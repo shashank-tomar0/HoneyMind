@@ -4,9 +4,9 @@ import './Sidebar.css';
 
 const NAV = [
   { id: 'dashboard',  icon: '⬡', label: 'Command Center' },
-  { id: 'attackers',  icon: '👁', label: 'Attackers' },
-  { id: 'ai',         icon: '🧠', label: 'AI Insights' },
-  { id: 'decoys',     icon: '🦎', label: 'Decoy Lab' },
+  { id: 'attackers',  icon: '', label: 'Attackers' },
+  { id: 'ai',         icon: '', label: 'AI Insights' },
+  { id: 'decoys',     icon: '', label: 'Decoy Lab' },
 ];
 
 export default function Sidebar({ active, onNav }) {
@@ -16,7 +16,7 @@ export default function Sidebar({ active, onNav }) {
     <aside className="sidebar">
       {/* Brand */}
       <div className="sidebar-brand">
-        <span className="brand-icon">🍯</span>
+        <span className="brand-icon"></span>
         <div>
           <div className="brand-name shimmer">HoneyMind</div>
           <div className="brand-tagline">AI Threat Intelligence</div>

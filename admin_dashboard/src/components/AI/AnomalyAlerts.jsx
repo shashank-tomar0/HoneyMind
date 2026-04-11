@@ -8,7 +8,7 @@ export default function AnomalyAlerts() {
 
   return (
     <div className="anomaly-bar">
-      <span className="anomaly-bar-title mono text-xs">⚠ ANOMALIES</span>
+      <span className="anomaly-bar-title mono text-xs"> ANOMALIES</span>
       <div className="anomaly-list">
         {anomalies.slice(0, 5).map((a) => (
           <div key={a.id} className="anomaly-chip">
@@ -21,7 +21,7 @@ export default function AnomalyAlerts() {
               className="anomaly-dismiss"
               onClick={() => dismissAnomaly(a.id)}
               title="Dismiss"
-            >✕</button>
+            ></button>
           </div>
         ))}
       </div>

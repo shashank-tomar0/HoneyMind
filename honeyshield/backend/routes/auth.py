@@ -30,20 +30,7 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 @auth_bp.route("/login", methods=["POST"])
 def honeypot_login():
-    """
-    Honeypot login endpoint — receives login attempts, classifies them,
-    and routes attackers into the honeypot.
 
-    Expected JSON body:
-    {
-        "username": "...",
-        "password": "...",
-        "time_to_submit_form_s": 0.3,
-        "keystroke_interval_ms": 12.0,
-        "mouse_moved_before_click": false,
-        "has_javascript": false
-    }
-    """
     data = request.get_json(force=True, silent=True) or {}
     ip = request.headers.get("X-Forwarded-For", request.remote_addr)
     user_agent = request.headers.get("User-Agent", "")
@@ -270,12 +257,24 @@ def _get_or_create_session(
     ip: str, user_agent: str, session_data: dict
 ) -> AttackSession:
     """Get existing active session for this IP or create a new one."""
+    from datetime import timedelta
+    
     existing = AttackSession.query.filter_by(
         attacker_ip=ip, status="active"
     ).first()
 
     if existing:
-        return existing
+        now = datetime.now(timezone.utc)
+        updated = existing.updated_at or existing.created_at
+        if updated and updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+            
+        # Expire session if completely idle for 15 minutes, or if the user completely spoofs a new device/agent
+        if (now - updated > timedelta(minutes=15)) or (existing.user_agent and existing.user_agent != user_agent):
+            existing.status = "expired"
+            db.session.commit()
+        else:
+            return existing
 
     session = AttackSession(
         attacker_ip=ip,
@@ -323,6 +322,10 @@ def _emit_attack_to_dashboard(
 
     # Build attack type from detection flags
     attack_type = detection_flags[0] if detection_flags else "CREDENTIAL_ATTACK"
+
+    if attack_type == "CREDENTIAL_ATTACK":
+        threat_score = 0
+        threat_level = "LOW"
 
     # Real IP geolocation lookup
     geo = geolocate_ip(ip)
@@ -375,7 +378,7 @@ def _emit_attack_to_dashboard(
     })
 
     # Emit anomaly alert for critical threats
-    if ml_action == "ATTACKER":
+    if ml_action == "ATTACKER" and attack_type != "CREDENTIAL_ATTACK":
         socketio.emit("anomaly_alert", {
             "type": f"{attack_type} Detected",
             "description": f"Attacker from {geo['country']} targeting user '{username}'",

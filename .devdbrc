@@ -2,5 +2,9 @@
   {
     "type": "sqlite",
     "path": "/Users/raidx/Desktop/CodE/Projects/HoneyPot Off-Grid/instance/honeyshield.db"
+  },
+  {
+    "type": "sqlite",
+    "path": "/Users/raidx/Desktop/CodE/Projects/HoneyPot Off-Grid/honeyshield/backend/instance/honeyshield.db"
   }
 ]

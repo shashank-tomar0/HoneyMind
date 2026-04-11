@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NexusCorp | System Administration</title>
+  <title>Nexus | System Administration</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/global.css">
   <style>
@@ -140,47 +140,65 @@
     /* Bait Downloads Panel */
     .bait-item {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem;
-      background: rgba(0,0,0,0.2);
-      border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 8px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 1.25rem;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
       margin-bottom: 1rem;
-      transition: all 0.2s ease;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
     }
 
     .bait-item:hover {
       background: rgba(255,255,255,0.05);
-      border-color: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    .bait-info {
+      width: 100%;
     }
 
     .bait-info h4 {
       color: white;
-      margin-bottom: 0.25rem;
-      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+      font-size: 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .bait-info p {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
     }
 
     .btn-download {
-      background: transparent;
-      border: 1px solid var(--primary);
-      color: var(--primary);
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary), #3b82f6);
+      border: none;
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
       font-size: 0.875rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
 
     .btn-download:hover {
-      background: var(--primary);
-      color: white;
+      filter: brightness(1.1);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
     }
     
     /* Responsive */
@@ -201,7 +219,7 @@
     <div class="navbar">
       <div style="display:flex; align-items:center; gap:10px;">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-        <span style="font-weight:600; color:white; font-size:1.1rem;">NexusCorp Admin</span>
+        <span style="font-weight:600; color:white; font-size:1.1rem;">Nexus</span>
       </div>
       <div class="user-profile">
         <span style="font-size:0.9rem;">sysadmin_root</span>
@@ -271,7 +289,10 @@
             <h4>prod_db_dump.xlsx</h4>
             <p>Customer PII & Hashes</p>
           </div>
-          <button class="btn-download" onclick="downloadBait('xlsx', 'prod_db_dump.xlsx')">Download</button>
+          <button class="btn-download" onclick="downloadBait('xlsx', 'prod_db_dump.xlsx')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Download File
+          </button>
         </div>
 
         <div class="bait-item">
@@ -279,7 +300,10 @@
             <h4>network_topology.pdf</h4>
             <p>Internal VLAN routing</p>
           </div>
-          <button class="btn-download" onclick="downloadBait('pdf', 'network_topology.pdf')">Download</button>
+          <button class="btn-download" onclick="downloadBait('pdf', 'network_topology.pdf')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Download File
+          </button>
         </div>
 
         <div class="bait-item">
@@ -287,7 +311,10 @@
             <h4>Q3_Payroll_Records.xlsx</h4>
             <p>Confidential Financials</p>
           </div>
-          <button class="btn-download" onclick="downloadBait('xlsx', 'payroll.xlsx')">Download</button>
+          <button class="btn-download" onclick="downloadBait('xlsx', 'payroll.xlsx')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Download File
+          </button>
         </div>
       </div>
 

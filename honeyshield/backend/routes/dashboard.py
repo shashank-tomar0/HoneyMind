@@ -109,6 +109,55 @@ def attack_type_breakdown():
     }), 200
 
 
+@dashboard_bp.route("/stats/devices", methods=["GET"])
+def device_footprints():
+    """Device footprint categorization from user agents."""
+    hours = request.args.get("hours", 24, type=int)
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    sessions = AttackSession.query.filter(
+        AttackSession.created_at >= since,
+        AttackSession.ml_action != "LEGIT"
+    ).all()
+
+    devices = {
+        "Windows": 0,
+        "macOS": 0,
+        "Linux": 0,
+        "Mobile": 0,
+        "Automated Scripts / Bots": 0,
+        "Tor Network": 0,
+        "Unknown / Malformed": 0
+    }
+
+    for s in sessions:
+        if s.is_tor:
+            devices["Tor Network"] += 1
+            continue
+
+        ua = (s.user_agent or "").lower()
+
+        if not ua or "undefined" in ua:
+            devices["Unknown / Malformed"] += 1
+        elif "nmap" in ua or "curl" in ua or "python" in ua or "bot" in ua or "request" in ua or "wget" in ua or "masscan" in ua:
+            devices["Automated Scripts / Bots"] += 1
+        elif "android" in ua or "iphone" in ua or "ipad" in ua:
+            devices["Mobile"] += 1
+        elif "windows" in ua:
+            devices["Windows"] += 1
+        elif "mac os" in ua or "macintosh" in ua:
+            devices["macOS"] += 1
+        elif "linux" in ua or "x11" in ua:
+            devices["Linux"] += 1
+        else:
+            devices["Unknown / Malformed"] += 1
+
+    return jsonify({
+        "devices": devices,
+        "period_hours": hours,
+    }), 200
+
+
 @dashboard_bp.route("/stats/geo", methods=["GET"])
 def geo_distribution():
     """Geographic distribution of attackers."""
@@ -350,12 +399,46 @@ def list_attackers():
                 "first_seen": s.created_at.isoformat() if s.created_at else None,
                 "last_seen": s.created_at.isoformat() if s.created_at else None,
                 "canary_hits": [],
+                "user_agents": set(),
+                "is_vpn": False,
+                "is_tor": False,
+                "_js_sum": 0, "_js_count": 0,
+                "_mouse_sum": 0, "_mouse_count": 0,
+                "_key_sum": 0, "_key_count": 0,
+                "_time_sum": 0, "_time_count": 0,
             }
 
         entry = ip_map[ip]
+        
+        if s.created_at:
+            s_iso = s.created_at.isoformat()
+            if not entry["first_seen"] or s_iso < entry["first_seen"]:
+                entry["first_seen"] = s_iso
+            if not entry["last_seen"] or s_iso > entry["last_seen"]:
+                entry["last_seen"] = s_iso
+
         entry["session_ids"].append(s.id)
         entry["event_count"] += (s.events.count() if hasattr(s, 'events') else 0)
         entry["credential_count"] += (s.credentials.count() if hasattr(s, 'credentials') else 0)
+
+        if getattr(s, "user_agent", None):
+            entry["user_agents"].add(s.user_agent)
+        if s.is_vpn: entry["is_vpn"] = True
+        if s.is_tor: entry["is_tor"] = True
+
+        for cred in s.credentials:
+            if getattr(cred, "has_javascript", None) is not None:
+                entry["_js_sum"] += 1 if cred.has_javascript else 0
+                entry["_js_count"] += 1
+            if getattr(cred, "mouse_moved", None) is not None:
+                entry["_mouse_sum"] += 1 if cred.mouse_moved else 0
+                entry["_mouse_count"] += 1
+            if getattr(cred, "keystroke_interval_ms", None) is not None:
+                entry["_key_sum"] += cred.keystroke_interval_ms
+                entry["_key_count"] += 1
+            if getattr(cred, "time_to_submit_s", None) is not None:
+                entry["_time_sum"] += cred.time_to_submit_s
+                entry["_time_count"] += 1
 
         # Use highest threat level
         level_priority = {"ATTACKER": 3, "SUSPICIOUS": 2, "MEDIUM": 1}
@@ -416,7 +499,27 @@ def list_attackers():
         if not data["attack_types"]:
             data["attack_types"] = ["CREDENTIAL_ATTACK"]
         data["session_count"] = len(data["session_ids"])
-        del data["session_ids"]  # Don't leak internal IDs
+        
+        # Format custom device lists
+        data["user_agents"] = list(data["user_agents"])
+        
+        # Calculate behavioral metrics
+        data["has_javascript"] = (data["_js_sum"] / data["_js_count"] >= 0.5) if data["_js_count"] > 0 else False
+        data["mouse_moved"] = (data["_mouse_sum"] / data["_mouse_count"] >= 0.5) if data["_mouse_count"] > 0 else False
+        data["avg_keystroke_ms"] = round(data["_key_sum"] / data["_key_count"], 1) if data["_key_count"] > 0 else 0
+        data["avg_time_submit_s"] = round(data["_time_sum"] / data["_time_count"], 2) if data["_time_count"] > 0 else 0
+        
+        # Cleanup internals
+        del data["session_ids"]
+        del data["_js_sum"]
+        del data["_js_count"]
+        del data["_mouse_sum"]
+        del data["_mouse_count"]
+        del data["_key_sum"]
+        del data["_key_count"]
+        del data["_time_sum"]
+        del data["_time_count"]
+        
         result.append(data)
 
     # Sort by threat level priority
@@ -424,4 +527,33 @@ def list_attackers():
     result.sort(key=lambda x: level_sort.get(x["threat_level"], 0), reverse=True)
 
     return jsonify({"attackers": result, "total": len(result)}), 200
+
+
+@dashboard_bp.route("/attackers/<path:ip>", methods=["DELETE"])
+def delete_attacker(ip: str):
+    """
+    Deletes all records of an attacker IP entirely from the database.
+    Due to foreign key constraints lacking automatic cascading, we wipe manually.
+    """
+    sessions = AttackSession.query.filter_by(attacker_ip=ip).all()
+    if not sessions:
+        return jsonify({"error": "Attacker IP not found in telemetry records"}), 404
+
+    session_ids = [s.id for s in sessions]
+
+    # Manually execute hard cascade deletion across connected forensic tables
+    CredentialAttempt.query.filter(CredentialAttempt.session_id.in_(session_ids)).delete(synchronize_session=False)
+    ShellCommand.query.filter(ShellCommand.session_id.in_(session_ids)).delete(synchronize_session=False)
+    CanaryHit.query.filter(CanaryHit.session_id.in_(session_ids)).delete(synchronize_session=False)
+    SessionEvent.query.filter(SessionEvent.session_id.in_(session_ids)).delete(synchronize_session=False)
+    
+    # DetectionLogs are created independently by the engine and often lack session_ids
+    DetectionLog.query.filter_by(ip=ip).delete(synchronize_session=False)
+
+    # Nuke the parent node
+    AttackSession.query.filter_by(attacker_ip=ip).delete(synchronize_session=False)
+    
+    db.session.commit()
+
+    return jsonify({"status": "success", "message": f"Wiped forensic telemetry belonging to {ip}"}), 200
 

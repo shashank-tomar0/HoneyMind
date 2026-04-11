@@ -10,7 +10,7 @@ const FLAG_MAP = {
 };
 
 function getFlag(code) {
-  return FLAG_MAP[code] || '🌐';
+  return FLAG_MAP[code] || '';
 }
 
 function formatTime(ts) {
@@ -32,12 +32,16 @@ export default function LiveFeed({ onSelectSession }) {
   const [expanded, setExpanded] = useState(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
+  const filteredEvents = feedEvents.filter(ev => 
+    ev.attack_type !== 'CREDENTIAL_ATTACK' && ev.threat_level !== 'LOW'
+  );
+
   // Auto-scroll to top on new events
   useEffect(() => {
     if (autoScroll && feedRef.current) {
       feedRef.current.scrollTop = 0;
     }
-  }, [feedEvents.length, autoScroll]);
+  }, [filteredEvents.length, autoScroll]);
 
   return (
     <div className="live-feed glass-card">
@@ -47,7 +51,7 @@ export default function LiveFeed({ onSelectSession }) {
           <span className="text-sm font-bold glow-cyan">LIVE FEED</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="dim text-xs mono">{feedEvents.length} events</span>
+          <span className="dim text-xs mono">{filteredEvents.length} events</span>
           <button
             className={`autoscroll-btn mono text-xs ${autoScroll ? 'active' : ''}`}
             onClick={() => setAutoScroll(!autoScroll)}
@@ -58,12 +62,12 @@ export default function LiveFeed({ onSelectSession }) {
       </div>
 
       <div className="feed-list" ref={feedRef}>
-        {feedEvents.length === 0 && (
+        {filteredEvents.length === 0 && (
           <div className="feed-empty dim mono text-xs">
             Waiting for attack events...
           </div>
         )}
-        {feedEvents.map((ev) => (
+        {filteredEvents.map((ev) => (
           <div
             key={ev.id}
             className={`feed-row ${expanded === ev.id ? 'feed-row--expanded' : ''} ${ev.is_anomaly ? 'feed-row--anomaly' : ''}`}
@@ -81,7 +85,7 @@ export default function LiveFeed({ onSelectSession }) {
               <span className="feed-type mono text-xs" style={{ color: 'var(--text-secondary)' }}>
                 {ev.attack_type || 'UNKNOWN'}
               </span>
-              {ev.is_anomaly && <span className="anomaly-tag">⚠ ANOMALY</span>}
+              {ev.is_anomaly && <span className="anomaly-tag"> ANOMALY</span>}
               <span className="feed-score mono text-xs" style={{ color: scoreColor(ev.threat_score) }}>
                 {ev.threat_score?.toFixed(0) || 0}
               </span>
@@ -119,7 +123,7 @@ export default function LiveFeed({ onSelectSession }) {
                         borderRadius: 6,
                       }}>
                         <div className="mono text-xs" style={{ color: '#60a5fa', fontWeight: 700, marginBottom: 6 }}>
-                          🌐 HONEYPOT LOGIN IP
+                           HONEYPOT LOGIN IP
                         </div>
                         {ev.original_ip_geo ? (
                           <>
@@ -163,8 +167,8 @@ export default function LiveFeed({ onSelectSession }) {
                       textAlign: 'center',
                     }}>
                       {ev.original_ip === ev.real_ip
-                        ? '✅ IPs MATCH — Same network origin confirmed'
-                        : '⚠️ IPs DIFFER — Attacker may be using VPN/proxy at login'}
+                        ? ' IPs MATCH — Same network origin confirmed'
+                        : ' IPs DIFFER — Attacker may be using VPN/proxy at login'}
                     </div>
                   </div>
                 )}

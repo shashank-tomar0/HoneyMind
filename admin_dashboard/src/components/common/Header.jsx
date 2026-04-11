@@ -17,7 +17,7 @@ export default function Header({ page }) {
     <header className="header">
       {/* Left: breadcrumb */}
       <div className="header-left">
-        <span className="header-icon">🛡️</span>
+        <span className="header-icon"></span>
         <div>
           <div className="header-page-name">{PAGE_TITLES[page] || 'HoneyMind'}</div>
           <div className="header-sub mono text-xs dim">
@@ -40,7 +40,7 @@ export default function Header({ page }) {
       <div className="header-right">
         {criticalCount > 0 && (
           <div className="chip chip-critical">
-            ⚠ {criticalCount} CRITICAL
+             {criticalCount} CRITICAL
           </div>
         )}
         <div className={`chip ${connected ? 'chip-online' : 'chip-offline'}`}>

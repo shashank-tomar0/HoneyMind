@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { api } from '../../utils/api';
 import './AttackerProfile.css';
 
 const BACKEND = 'http://localhost:5000';
@@ -26,18 +27,38 @@ function relativeTime(ts) {
 }
 
 function getFlag(code) {
-  if (!code || code === 'XX') return '🏴';
+  if (!code || code === 'XX') return '';
   try {
     return String.fromCodePoint(
       ...[...code.toUpperCase()].map((c) => 0x1F1E6 + c.charCodeAt(0) - 65)
     );
-  } catch { return '🏴'; }
+  } catch { return ''; }
 }
 
 export default function AttackerProfile({ onBack }) {
   const [attackers, setAttackers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIp, setSelectedIp] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!selectedIp) return;
+    const selected = attackers.find(a => a.ip === selectedIp);
+    const rawIp = selected ? selected.raw_ip : selectedIp;
+
+    if (!window.confirm(`PERMANENT WIPEOUT - Are you sure you want to nuke all telemetry for ${selectedIp}?`)) return;
+    
+    setDeleting(true);
+    try {
+      await api.deleteAttacker(rawIp);
+      setAttackers(prev => prev.filter(a => a.ip !== selectedIp));
+      setSelectedIp(null);
+    } catch (err) {
+      console.error("Failed to delete attacker", err);
+      alert("Wipe operation failed.");
+    }
+    setDeleting(false);
+  };
 
   // Fetch attackers from DB — auto-refresh every 5s
   useEffect(() => {
@@ -65,7 +86,7 @@ export default function AttackerProfile({ onBack }) {
       {/* Left: Attacker list */}
       <div className="attacker-list glass-card">
         <div className="list-header">
-          <span className="mono text-sm font-bold glow-cyan">⚡ THREAT ACTORS</span>
+          <span className="mono text-sm font-bold glow-cyan"> THREAT ACTORS</span>
           <span className="dim text-xs mono">{attackers.length} hostile</span>
         </div>
 
@@ -109,7 +130,7 @@ export default function AttackerProfile({ onBack }) {
       <div className="attacker-detail">
         {!selected ? (
           <div className="attacker-empty glass-card">
-            <div className="empty-icon">👁</div>
+            <div className="empty-icon"></div>
             <div className="empty-msg text-md">Select an attacker to profile</div>
             <div className="empty-sub dim text-sm">Click any hostile IP on the left</div>
           </div>
@@ -117,8 +138,27 @@ export default function AttackerProfile({ onBack }) {
           <>
             {/* Header card */}
             <div className="profile-header glass-card">
-              <div className="profile-main-info">
-                <div className="profile-ip mono text-2xl glow-cyan">{selected.ip}</div>
+              <div className="profile-main-info" style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="profile-ip mono text-2xl glow-cyan">{selected.ip}</div>
+                  <button 
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    style={{ 
+                      background: 'rgba(239, 68, 68, 0.1)', 
+                      border: '1px solid rgba(239, 68, 68, 0.5)', 
+                      color: '#fca5a5', 
+                      padding: '4px 12px', 
+                      borderRadius: '4px',
+                      cursor: deleting ? 'wait' : 'pointer',
+                      fontSize: '10px',
+                      fontFamily: 'monospace',
+                      boxShadow: '0 0 10px rgba(239, 68, 68, 0.2)'
+                    }}
+                  >
+                    {deleting ? 'DATA NUKING...' : 'WIPE ATTACKER'}
+                  </button>
+                </div>
                 <div className="profile-meta">
                   <span>{getFlag(selected.country_code)} {selected.city}, {selected.country}</span>
                   <span className="dim">·</span>
@@ -156,6 +196,54 @@ export default function AttackerProfile({ onBack }) {
                 <InfoRow label="Organization" value={selected.org || '–'} />
                 <InfoRow label="Latitude" value={selected.lat?.toFixed(4)} />
                 <InfoRow label="Longitude" value={selected.lng?.toFixed(4)} />
+              </div>
+
+              {/* Behavior & Device Intel */}
+              <div className="glass-card detail-box">
+                <div className="detail-box-title mono text-xs dim">DEVICE & BEHAVIORAL FOOTPRINT</div>
+                <InfoRow 
+                  label="Network Route" 
+                  value={selected.is_tor ? "ONION / TOR PROXY" : selected.is_vpn ? "SUSPECTED VPN" : "CLEARNET"} 
+                  highlight={selected.is_vpn || selected.is_tor} 
+                />
+                <InfoRow 
+                  label="JS Engine" 
+                  value={selected.has_javascript ? "Executed (Emulated Browser)" : "Disabled (Headless CLI/Script)"} 
+                  highlight={!selected.has_javascript} 
+                />
+                <InfoRow 
+                  label="Mouse Telemetry" 
+                  value={selected.mouse_moved ? "Cursor Activity Detected" : "Zero Movement"} 
+                  highlight={!selected.mouse_moved} 
+                />
+                <InfoRow 
+                  label="Avg Keystroke Inter." 
+                  value={selected.avg_keystroke_ms ? `${selected.avg_keystroke_ms} ms` : "Instantaneous (Pasted)"} 
+                />
+                <InfoRow 
+                  label="Avg Submit Delay" 
+                  value={selected.avg_time_submit_s ? `${selected.avg_time_submit_s} s` : "N/A"} 
+                />
+                
+                <div className="info-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 12 }}>
+                  <span className="info-label dim text-xs mono">CAPTURED USER AGENTS</span>
+                  {(selected.user_agents || []).length > 0 ? (
+                    selected.user_agents.map((ua, i) => (
+                      <div key={i} className="info-value text-xs mono" style={{ 
+                        color: 'var(--cyan)', 
+                        wordBreak: 'break-all',
+                        background: 'rgba(0, 240, 255, 0.05)',
+                        padding: '4px 6px',
+                        borderLeft: '2px solid var(--cyan)',
+                        marginTop: 4
+                      }}>
+                        {ua}
+                      </div>
+                    ))
+                  ) : (
+                    <span className="info-value text-xs dim">None Identified</span>
+                  )}
+                </div>
               </div>
 
               {/* Canary section */}

@@ -17,4 +17,8 @@ export const api = {
   getGeoAttacks: ()       => apiFetch('/geo/attacks'),
   getTimeline:   ()       => apiFetch('/timeline'),
   getTopAttackers: ()     => apiFetch('/top-attackers'),
+  getCanaryTokens: ()     => apiFetch('/canary/tokens'),
+  getAttackTypes:  ()     => apiFetch('/dashboard/stats/attack-types'),
+  getDeviceFootprints: () => apiFetch('/dashboard/stats/devices'),
+  deleteAttacker:  (ip)   => apiFetch(`/dashboard/attackers/${encodeURIComponent(ip)}`, { method: 'DELETE' }),
 };

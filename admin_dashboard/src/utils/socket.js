@@ -21,14 +21,14 @@ export function connectSocket() {
   const store = useThreatStore.getState();
 
   socket.on('connect', () => {
-    console.log('[WS] Connected ✅');
+    console.log('[WS] Connected ');
     store.setConnected(true);
     socket.emit('request_stats');
     socket.emit('request_sessions');
   });
 
   socket.on('disconnect', () => {
-    console.log('[WS] Disconnected ❌');
+    console.log('[WS] Disconnected ');
     store.setConnected(false);
   });
 
